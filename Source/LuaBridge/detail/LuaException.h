@@ -89,13 +89,42 @@ public:
     throw e;
   }
 
+  static int msghandler (lua_State *L) {
+	const char *msg = lua_tostring(L, 1);
+	if (msg == NULL) {  /* is error object not a string? */
+	  if (luaL_callmeta(L, 1, "__tostring") &&  /* does it have a metamethod */
+		  lua_type(L, -1) == LUA_TSTRING)  /* that produces a string? */
+		return 1;  /* that is the message */
+	  else
+		msg = lua_pushfstring(L, "(error object is a %s value)",
+								 luaL_typename(L, 1));
+	}
+	luaL_traceback(L, L, msg, 1);  /* append a standard traceback */
+	return 1;  /* return the traceback */
+  }
+
   //----------------------------------------------------------------------------
   /**
       Wrapper for lua_pcall that throws.
   */
   static void pcall (lua_State* L, int nargs = 0, int nresults = 0, int msgh = 0)
   {
-    int code = lua_pcall (L, nargs, nresults, msgh);
+	int base;
+	if (!msgh)
+	{
+		base = lua_gettop(L) - nargs;
+		lua_pushcfunction(L, msghandler);
+		lua_insert(L, base);
+	}
+	else
+	{
+		base = msgh;
+	}
+	int code = lua_pcall (L, nargs, nresults, base);
+	if (!msgh)
+	{
+		lua_remove(L, base);
+	}
 
     if (code != LUABRIDGE_LUA_OK)
       Throw (LuaException (L, code));
