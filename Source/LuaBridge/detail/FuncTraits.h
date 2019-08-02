@@ -2,6 +2,7 @@
 /*
   https://github.com/vinniefalco/LuaBridge
 
+  Copyright 2019, George Tokmaji
   Copyright 2019, Dmitry Tarakanov
   Copyright 2012, Vinnie Falco <vinnie.falco@gmail.com>
 
@@ -30,6 +31,8 @@
 #pragma once
 
 #include <LuaBridge/detail/Config.h>
+#include "TypeList.h"
+#include "TypeTraits.h"
 
 #ifdef LUABRIDGE_CXX11
 #include <functional>
@@ -58,189 +61,96 @@ namespace luabridge {
 /**
  * Traits class for unrolling the type list values into function arguments.
  */
+
 template <class ReturnType, size_t NUM_PARAMS>
-struct Caller;
-
-template <class ReturnType>
-struct Caller <ReturnType, 0>
+struct Caller
 {
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& params)
-  {
-    return fn ();
-  }
 
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>&)
-  {
-    return (obj->*fn) ();
-  }
+	template<class Fn, class Params>
+	static ReturnType f(Fn &fn, TypeListValues<Params> &tvl)
+	{
+		if constexpr (std::is_same_v<ReturnType, void>)
+		{
+			std::apply(fn, typeListValuesTuple(tvl));
+		}
+		else
+		{
+			return std::apply(fn, typeListValuesTuple(tvl));
+		}
+	}
+
+	template<class T, class MemFn, class Params>
+	static ReturnType f(T *obj, MemFn &fn, TypeListValues<Params> &tvl)
+	{
+		auto l = [obj, fn](auto &&... args){ return (obj->*fn)(std::forward<decltype(args)>(args)...); };
+
+		if constexpr (std::is_same_v<ReturnType, void>)
+		{
+			std::apply(l, typeListValuesTuple(tvl));
+		}
+		else
+		{
+			return std::apply(l, typeListValuesTuple(tvl));
+		}
+	}
 };
 
-template <class ReturnType>
-struct Caller <ReturnType, 1>
+template<class ReturnType>
+struct Caller<ReturnType, 0>
 {
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd);
-  }
+	template<class Fn, class Params>
+	static ReturnType f(Fn &fn, TypeListValues<Params> &)
+	{
+		if constexpr (std::is_same_v<ReturnType, void>)
+		{
+			fn();
+		}
+		else
+		{
+			return fn();
+		}
+	}
 
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd);
-  }
+	template<class T, class MemFn, class Params>
+	static ReturnType f(T *obj, MemFn &fn, TypeListValues<Params> &)
+	{
+		if constexpr (std::is_same_v<ReturnType, void>)
+		{
+			(obj->*fn)();
+		}
+		else
+		{
+			return (obj->*fn)();
+		}
+	}
 };
 
-template <class ReturnType>
-struct Caller <ReturnType, 2>
+/*template <class ReturnType>
+struct Caller<ReturnType, 0>
 {
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd);
-  }
+	template<class Fn, class Params>
+	static ReturnType f(Fn &fn, TypeListValues<Params> &tvl)
+	{
+		return fn();
+	}
 
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 3>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 4>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 5>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 6>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 7>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 8>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd);
-  }
-};
-
-template <class ReturnType>
-struct Caller <ReturnType, 9>
-{
-  template <class Fn, class Params>
-  static ReturnType f (Fn& fn, TypeListValues <Params>& tvl)
-  {
-    return fn (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.tl.tl.tl.hd);
-  }
-
-  template <class T, class MemFn, class Params>
-  static ReturnType f (T* obj, MemFn& fn, TypeListValues <Params>& tvl)
-  {
-    return (obj->*fn) (tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd,
-      tvl.tl.tl.tl.tl.tl.tl.tl.tl.hd);
-  }
-};
+	template<class T, class MemFn, class Params>
+	static ReturnType f(T *obj, MemFn &fn, TypeListValues<Params> &tvl)
+	{
+		return (obj->*fn)();
+	}
+};*/
 
 template <class ReturnType, class Fn, class Params>
 ReturnType doCall (Fn& fn, TypeListValues <Params>& tvl)
 {
-  return Caller <ReturnType, TypeListSize <Params>::value>::f (fn, tvl);
+	return Caller<ReturnType, TypeListSize<Params>::value>::f(fn, tvl);
 }
 
 template <class ReturnType, class T, class MemFn, class Params>
 static ReturnType doCall(T* obj, MemFn& fn, TypeListValues <Params>& tvl)
 {
-  return Caller <ReturnType, TypeListSize <Params>::value>::f (obj, fn, tvl);
+	return Caller<ReturnType, TypeListSize<Params>::value>::f(obj, fn, tvl);
 }
 
 //==============================================================================

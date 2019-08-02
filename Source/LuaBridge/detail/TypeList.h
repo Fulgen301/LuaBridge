@@ -2,6 +2,7 @@
 /*
   https://github.com/vinniefalco/LuaBridge
   
+  Copyright 2019, George Tokmaji
   Copyright 2012, Vinnie Falco <vinnie.falco@gmail.com>
   Copyright 2007, Nathan Reed
 
@@ -50,6 +51,7 @@
 
 #include <string>
 #include <typeinfo>
+#include <tuple>
 
 namespace luabridge {
 
@@ -185,6 +187,19 @@ struct TypeListValues <TypeList <Head const&, Tail> >
     return s + TypeListValues <Tail>::tostring (true);
   }
 };
+
+template<typename Head, typename Tail>
+auto typeListValuesTuple(TypeListValues<TypeList<Head, Tail>> &tvl)
+{
+	if constexpr (std::is_same_v<Tail, void>)
+	{
+		return std::make_tuple(tvl.hd);
+	}
+	else
+	{
+		return std::tuple_cat(std::make_tuple(tvl.hd), typeListValuesTuple(tvl.tl));
+	}
+}
 
 //==============================================================================
 /**
